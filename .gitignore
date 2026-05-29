@@ -1,0 +1,25 @@
+# Build output
+build/
+out/
+cmake-build-*/
+*.vst3
+
+# JUCE (pulled via FetchContent into the build tree)
+_deps/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Rendered audio (prototype output)
+*.wav
+
+# Editor / OS
+.vs/
+.idea/
+.vscode/
+*.user
+.DS_Store
+Thumbs.db
