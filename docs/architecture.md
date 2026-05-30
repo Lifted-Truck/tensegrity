@@ -92,6 +92,14 @@ Key points:
 - **`PatchState` is the instrument.** Targets, weights, regularizer, init source,
   iteration budget. Moving these over time is "playing." A host maps MIDI/automation/a
   Morphos field onto this struct.
+- **Weight is the gate — no boolean toggles.** Optional constraints (formants and any
+  future opt-in feature) are ordinary terms whose weight controls their influence on a
+  continuous scale. At weight 0 a term contributes nothing to the energy *and* nothing
+  to the gradient, so it is exactly equivalent to being absent. The solver **skips any
+  term with weight ≤ ε** before touching its FFT/reductions, so a zeroed constraint
+  costs zero CPU — the slider blends a feature in from free-and-off to full influence
+  with no discontinuity and no separate enable flag. This is one uniform mechanism for
+  the whole optional-feature surface.
 - **Constraints carry their own analytic gradient.** No autodiff at runtime.
 - **`StreamEngine::process` is host-buffer agnostic** — it owns the fixed analysis
   block internally (see §4), so a host calling it with 64- or 512-sample buffers gets

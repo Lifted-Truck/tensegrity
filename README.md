@@ -49,8 +49,13 @@ project loses the property that makes it worth building.
 2. **Frustration is the feature.** The architecture must keep arbitrary constraint
    combinations cheap to declare and weight, because designing patches *is* picking
    constraints that fight.
-3. **Formants are optional.** Formant sculpting is a separable, opt-in constraint
-   module — never baked into the base engine. Default patches do not engage it.
+3. **Optional features are weight-gated, not bolted on.** Every optional constraint
+   (formants first, others to follow) is a continuous term whose **weight is its
+   gate**: at weight 0 it contributes nothing to the energy or gradient — identical to
+   disabled, and skipped entirely for zero CPU — and blends in smoothly above 0. There
+   is no separate "enable" boolean; the slider *is* the toggle, with 0 as off. This
+   keeps the base engine general and makes adding a new optional constraint a uniform,
+   non-invasive act. Default patches sit at weight 0 for these.
 4. **Verifier discipline.** Every patch is checked two ways: instrumented metrics
    (centroid-tracking correlation, periodicity readout) **and** the ear. A patch can
    converge to a number while sounding dead — check both.
@@ -142,9 +147,13 @@ Turn the block engine into a real-time stream.
       discrete "voice" selector — noise / sinusoid / previous block).
 - [ ] APVTS parameters + state serialisation; audition in a DAW.
 
-### Phase 4 — Optional formant module
-- [ ] Formant constraint ported with analytic gradient, gated behind a feature toggle
-      and its own weight (vanishes at weight 0).
+### Phase 4 — Optional formant module (first weight-gated constraint)
+- [ ] Generic weight-gating in the solver: any term with weight ≤ ε is skipped (no
+      FFT, no gradient) so a zeroed constraint costs nothing; above ε it blends in
+      continuously. Formants are the first consumer of this; future opt-in constraints
+      reuse it unchanged.
+- [ ] Formant constraint ported with analytic gradient, driven entirely by its weight
+      (0 = off, identical to absent).
 - [ ] Vowel presets, lifter macro (15–60), time-varying / morphing formant targets.
 - [ ] Verify cohabitation per the formant ear-protocol: envelope bumps at target Hz,
       periodicity preserved, RMS envelope still respected.
@@ -194,7 +203,7 @@ the solver decide *how*.
 | Gradients | Autodiff offline (Python), **hand-derived analytic** in C++ | Cannot run autograd in the audio thread; each constraint is an FFT + reductions with a standard adjoint |
 | Continuity | Warm-start + 50% overlap-add Hann | Independent per-block solves click at the seams; this is the prototype's proven fix |
 | Real-time solver | Fixed ~8–16 iters, warm-started ("anytime") | Tracks moving targets; the lag is a playable feel, not an error |
-| Formants | Optional, separable module | Keeps the base engine general; speech-formant sculpting is opt-in |
+| Optional constraints | Continuous weight-gated; weight 0 = off (CPU-skipped) | One uniform mechanism for formants and any future opt-in feature; no boolean toggles |
 | Verification | Instrumented metrics **and** ear, every patch | A patch can converge numerically while sounding dead |
 | Build system | CMake + FetchContent | Reproducible, IDE-agnostic; mirrors Morphos |
 
