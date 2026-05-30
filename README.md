@@ -109,27 +109,56 @@ build-out toward a shippable VST and a portable engine. Phases are sequential bu
 the **core/plugin split is enforced from Phase 1 onward** — never let plugin
 concerns leak into the engine.
 
-### Phase 0 — Offline prototype & verifier ✅
+**Sequenced for early testability.** Two of the base constraints (`power`,
+`autocorr`) and the envelope constraint have **purely time-domain gradients — no
+FFT**, so their analytic gradients are the quickest to derive and verify. The
+spectral constraints (`centroid`, `tilt`) need the FFT-adjoint chain, and formants
+need the full cepstral chain. The roadmap therefore front-loads the time-domain
+constraints so a **rough but playable VST (Milestone P) can ship from the pitch ×
+transient × loudness frustration alone**, before any spectral-gradient work lands.
+Brightness and formants arrive in the slice after. Until the C++ path is playable,
+the Phase 0 audition harness is the live edit loop.
+
+### Phase 0 — Offline prototype, audition harness & verifier ✅
 - [x] Python variational solver: Adam over autograd gradients, warm-start + 50%
       overlap-add Hann continuity.
 - [x] Base constraints: spectral centroid, spectral tilt, RMS power, autocorrelation
       (pitch), short-time RMS envelope (transient shape).
-- [x] Regularizers: L2, smoothness, total variation.
+- [x] Regularizers: L2, smoothness, total variation; init-source "voice" selector
+      (noise / filtered-noise / sinusoid).
 - [x] Optional formant constraint (cepstral-envelope match to Gaussian targets) with
       vowel recipes and a lifter macro.
-- [x] Instrumented verification: centroid-tracking correlation + periodicity readout.
+- [x] **Declarative audition harness** (`prototype/audition.py` + `patches.py`):
+      author patches as data (weights + time-curve targets), batch-render to WAV, and
+      print verifier metrics (centroid-tracking correlation, periodicity) — the fast
+      sound-design edit loop, no build toolchain required.
 
 ### Phase 1 — Portable core scaffold (`core/`, C++17)
-The engine, JUCE-free, with a parity harness proving it matches the Python.
+The engine, JUCE-free, with a parity harness proving it matches the Python. Constraint
+work is ordered easiest-gradient-first to unblock Milestone P early.
 - [ ] CMake library target `tensegrity-core`, no plugin dependencies.
-- [ ] Pluggable FFT abstraction (inject host FFT; vendor a small FFT for standalone
-      tests and Python parity).
-- [ ] Solver core: hand-rolled Adam, warm-start, 50% overlap-add `BlockRenderer`.
-- [ ] Base constraints with **hand-derived analytic gradients** (the central lift —
-      autograd is offline-only): centroid, tilt, power, autocorrelation, RMS envelope.
+- [ ] Solver core: hand-rolled Adam, warm-start, 50% overlap-add `BlockRenderer`,
+      init-source selector.
 - [ ] Regularizers: L2 / smooth / TV.
+- [ ] **Time-domain constraints first** (no FFT): `power`, `autocorr` (pitch),
+      `envelope` — hand-derived analytic gradients, verified against the Python oracle.
 - [ ] **Parity test harness:** render identical patches in C++ and Python, compare
-      waveform + metrics (centroid r, periodicity) to confirm gradients match autograd.
+      waveform + metrics (periodicity, RMS-envelope adherence) to confirm gradients
+      match autograd. Per-constraint finite-difference gradient checks gate each one.
+- [ ] Pluggable FFT abstraction (inject host FFT; vendor a small FFT for standalone
+      tests and Python parity) — needed before the spectral constraints.
+- [ ] **Spectral constraints** with the FFT-adjoint chain: `centroid`, `tilt`
+      (brightness); parity-checked for centroid-tracking correlation.
+
+### Milestone P — Rough playable VST (the early-testability target) 🎯
+The first time you can play Tensegrity from a MIDI keyboard in a DAW. Deliberately
+minimal: time-domain constraints only (pitch × transient × loudness), so it lands
+before the spectral-gradient work. Brightness/formants come later.
+- [ ] Thin JUCE VST3 wrapper hosting `tensegrity-core`, monophonic, streaming engine
+      from Phase 2 (or a fixed-iteration offline-style solve if Phase 2 isn't done).
+- [ ] MIDI note → pitch-lag target; sliders for the `power` / `autocorr` / `envelope`
+      weights and targets, `reg_w`, regularizer, and init source.
+- [ ] Audition in Ableton; confirm the frustrated trio is musically alive by ear.
 
 ### Phase 2 — Streaming + real-time solver
 Turn the block engine into a real-time stream.
@@ -139,13 +168,14 @@ Turn the block engine into a real-time stream.
 - [ ] Fixed small iteration budget (~8–16), warm-started "anytime" tracking solver.
 - [ ] CPU-budget instrumentation; iteration count sized to block period minus headroom.
 
-### Phase 3 — Minimal VST3 (`plugin/`, JUCE) — first playable instrument
-- [ ] Thin JUCE VST3 wrapper hosting `tensegrity-core`. Monophonic first.
-- [ ] MIDI note → pitch (autocorrelation lag) constraint target.
-- [ ] Expose the playable parameters: constraint **targets**, **weights** (a "focus"
-      macro per constraint), `reg_w`, regularizer choice, and **init source** (the
-      discrete "voice" selector — noise / sinusoid / previous block).
-- [ ] APVTS parameters + state serialisation; audition in a DAW.
+### Phase 3 — Full first instrument (builds on Milestone P)
+Promote the rough playable plugin into a coherent instrument once streaming and the
+spectral constraints are in.
+- [ ] Fold in the spectral constraints (`centroid`, `tilt`) and the proper streaming
+      engine (Phase 2) so brightness is playable and the solver tracks in real time.
+- [ ] Complete the playable-parameter surface: per-constraint **targets** and
+      **weights** (a "focus" macro each), `reg_w`, regularizer choice, **init source**.
+- [ ] APVTS parameters + state serialisation; A/B regularizers and weights in a DAW.
 
 ### Phase 4 — Optional formant module (first weight-gated constraint)
 - [ ] Generic weight-gating in the solver: any term with weight ≤ ε is skipped (no

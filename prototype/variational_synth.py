@@ -114,11 +114,23 @@ def solve_block(energy_fn, init, iters=ITERS, lr=LR):
 # ----------------------------------------------------------------------------
 # Render: time-varying constraint set = the performance gesture
 # ----------------------------------------------------------------------------
-def render(seconds, constraint_fn, reg, reg_w):
+def _init_block(source):
+    # block-0 basin selector (the "voice"). Same constraints, different init -> different sound.
+    if source == "noise":
+        return np.random.randn(BLOCK) * 0.01            # broad basin, breathier
+    if source == "filtered_noise":
+        k = np.hanning(9); k = k / k.sum()
+        return np.convolve(np.random.randn(BLOCK), k, mode="same") * 0.01
+    if source == "sine":
+        return 0.01 * np.sin(2 * np.pi * 220 * np.arange(BLOCK) / SR)  # tonal basin
+    raise ValueError(f"unknown init_source {source!r}")
+
+
+def render(seconds, constraint_fn, reg, reg_w, init_source="noise"):
     n_blocks = int(seconds * SR / HOP)
     win = np.hanning(BLOCK)
     out = np.zeros(HOP * n_blocks + BLOCK)
-    prev = np.random.randn(BLOCK) * 0.01            # noise seed for block 0
+    prev = _init_block(init_source)                 # block-0 seed (default: noise, as before)
     for i in range(n_blocks):
         t = i / max(n_blocks - 1, 1)                # 0..1 performance position
         terms = constraint_fn(t)                    # list of (weight, constraint)

@@ -16,6 +16,9 @@ venv/
 # Rendered audio (prototype output)
 *.wav
 
+# Local tooling
+.claude/
+
 # Editor / OS
 .vs/
 .idea/
