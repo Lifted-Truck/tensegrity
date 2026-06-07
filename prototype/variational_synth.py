@@ -80,6 +80,15 @@ def c_formants(x, formants, lifter=30):
     target = target - np.mean(target)
     return anp.mean((env - target) ** 2)
 
+def c_envelope_match(x, target_env, lifter=30):
+    # generalization of c_formants: match the cepstral spectral envelope (shape only)
+    # to a GIVEN target envelope array -- e.g. one extracted from a real sound file via
+    # _envelope_cepstral. Same gradient path as c_formants; only the target differs.
+    env = _envelope_cepstral(x, lifter)
+    env = env - anp.mean(env)
+    tgt = target_env - anp.mean(target_env)
+    return anp.mean((env - tgt) ** 2)
+
 def c_envelope(x, target_env):
     # match short-time RMS contour -> attack / transient shape
     nf = len(target_env)

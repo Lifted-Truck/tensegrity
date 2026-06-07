@@ -32,6 +32,7 @@ from curves import const, ramp, breakpoints, sine
 # Short-time RMS contours (per-frame, normalized). Used by the envelope constraint.
 ENV_PERC = [1.0, 0.6, 0.38, 0.24, 0.15, 0.09, 0.05, 0.03]   # fast percussive decay
 ENV_SWELL = [0.15, 0.4, 0.7, 0.95, 1.0, 0.95, 0.85, 0.7]    # pad-like swell
+ENV_SUSTAIN = [0.7, 0.9, 1.0, 1.0, 1.0, 1.0, 0.9, 0.7]      # near-flat, holds (no per-block AM)
 
 PATCHES = [
     # The headline frustrated patch from the spec: a fixed pitch period, a percussive
@@ -42,9 +43,9 @@ PATCHES = [
         "reg": "smooth", "reg_w": 2e-3, "init": "noise",
         "terms": [
             {"c": "centroid", "w": 1.0, "target": ramp(400, 3400)},
-            {"c": "autocorr", "w": 4.0, "hz": ramp(110, 220), "target": 0.85},
+            {"c": "autocorr", "w": 5.0, "hz": ramp(110, 220), "target": 0.85},
             {"c": "power",    "w": 2.0, "target": 0.25},
-            {"c": "envelope", "w": 3.0, "target": ENV_PERC},
+            {"c": "envelope", "w": 5.0, "target": ENV_PERC},
             # Optional formant colour, left off. Raise w to hear it engage.
             {"c": "formants", "w": 0.0, "vowel": "a", "lifter": 30},
         ],
@@ -58,9 +59,9 @@ PATCHES = [
         "seconds": 2.0,
         "reg": "smooth", "reg_w": 2e-3, "init": "noise",
         "terms": [
-            {"c": "autocorr", "w": 4.0, "hz": ramp(110, 165), "target": 0.85},
+            {"c": "autocorr", "w": 5.0, "hz": ramp(110, 165), "target": 0.85},
             {"c": "power",    "w": 2.0, "target": 0.25},
-            {"c": "envelope", "w": 3.0, "target": ENV_PERC},
+            {"c": "envelope", "w": 5.0, "target": ENV_PERC},
         ],
     },
 
@@ -72,9 +73,29 @@ PATCHES = [
         "reg": "smooth", "reg_w": 2e-3, "init": "sine",
         "terms": [
             {"c": "formants", "w": 2.0, "vowel": "a", "lifter": 30},
-            {"c": "autocorr", "w": 4.0, "hz": sine(130, 8, cycles=2), "target": 0.85},
+            {"c": "autocorr", "w": 5.0, "hz": sine(130, 8, cycles=2), "target": 0.85},
             {"c": "power",    "w": 1.5, "target": 0.22},
-            {"c": "envelope", "w": 2.0, "target": ENV_PERC},
+            {"c": "envelope", "w": 5.0, "target": ENV_PERC},
+        ],
+    },
+
+    # Squeaking balloon: a high, erratically gliding pitch (stick-slip friction)
+    # sliding UNDER a fixed narrow resonance — the squeak "peaks" each time a harmonic
+    # crosses the formant. Sustained (not percussive), bright, with tv-reg grit. The
+    # pitch-vs-formant placement conflict is the squeak's voice.
+    {
+        "name": "balloon_squeak",
+        "seconds": 2.0,
+        "reg": "tv", "reg_w": 1e-3, "init": "sine",
+        "terms": [
+            # erratic up/down swoops, high register — the #1 squeak parameter
+            {"c": "autocorr", "w": 5.0, "target": 0.9,
+             "hz": breakpoints([(0.0, 700), (0.12, 1500), (0.25, 600), (0.40, 1700),
+                                (0.55, 800), (0.70, 1600), (0.85, 650), (1.0, 1300)])},
+            {"c": "formants", "w": 2.5, "formants": [(2000, 9.0, 120)], "lifter": 40},
+            {"c": "centroid", "w": 1.5, "target": ramp(2500, 3500)},
+            {"c": "power",    "w": 1.5, "target": 0.20},
+            {"c": "envelope", "w": 1.0, "target": ENV_SUSTAIN},
         ],
     },
 ]
